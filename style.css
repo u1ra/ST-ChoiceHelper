@@ -210,8 +210,15 @@
     white-space: nowrap;
 }
 .ch-mini:hover { background: var(--ch-btn-hover); border-color: var(--ch-accent); }
-select.ch-input { cursor: pointer; }
-select.ch-input option { color: #111; }
+select.ch-input {
+    cursor: pointer;
+    color: var(--ch-fg);
+    background-color: var(--ch-btn);
+}
+select.ch-input option {
+    color: var(--ch-fg);
+    background-color: var(--SmartThemeBlurTintColor, #1c1c22);
+}
 
 /* 自定义 API 块 */
 .ch-api-block { display: flex; flex-direction: column; gap: 8px; }

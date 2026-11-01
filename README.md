@@ -9,6 +9,22 @@
 
 ---
 
+## 一键安装（Git 仓库，推荐）
+
+仓库地址：
+
+```
+https://github.com/u1ra/ST-ChoiceHelper
+```
+
+酒馆内操作：**扩展（Extensions）→ 安装扩展程序（Install Extension）→ 粘贴上面的仓库地址 → 安装 → 刷新页面**。
+右下角出现 **🎭** 即成功。
+
+> 说明：`安装扩展程序` 是由酒馆后端执行 `git clone`，装到 `public/scripts/extensions/third-party/ST-ChoiceHelper`。
+> Docker 部署下该目录默认不持久化，容器重建会丢；想长期保留请参考下面「方式 B」做 bind mount。
+
+---
+
 ## 一、安装（Docker 版酒馆）
 
 > 扩展是"静态前端文件"，放进去后**浏览器刷新**即可，不用重启容器/服务。

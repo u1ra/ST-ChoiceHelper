@@ -7,7 +7,7 @@
   "css": "style.css",
   "author": "LittleCodeSauce",
   "version": "1.0.0",
-  "homePage": "",
+  "homePage": "https://github.com/u1ra/ST-ChoiceHelper",
   "auto_update": false,
   "minimum_client_version": "1.12.0"
 }

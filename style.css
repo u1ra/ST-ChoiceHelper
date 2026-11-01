@@ -213,6 +213,19 @@
 select.ch-input { cursor: pointer; }
 select.ch-input option { color: #111; }
 
+/* 自定义 API 块 */
+.ch-api-block { display: flex; flex-direction: column; gap: 8px; }
+.ch-custom-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 10px;
+    border: 1px dashed var(--ch-border);
+    border-radius: 10px;
+    background: var(--ch-btn);
+}
+
 .ch-hidden { display: none !important; }
 
 /* toast */

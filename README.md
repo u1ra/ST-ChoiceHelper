@@ -98,16 +98,23 @@ docker cp "E:\DeepSeekProject\MDZS\ST-ChoiceHelper" <容器名>:/home/node/app/p
 
 ---
 
-## 用便宜的独立 API（省主力模型 token）
+## 用在便宜的自定义 API（省主力模型 token）
 
-不想让"总结/选项"花你昂贵主力模型的钱？用酒馆自带的**连接配置(Connection Manager)**，给这个助手单独指一个便宜 API：
+「分析用 API」有两项：
 
-1. 酒馆顶部/扩展里打开 **连接管理（Connection Manager / Connection Profiles）**，**新建一个配置**：选你的便宜 API（如 DeepSeek、智谱 GLM、通义 Qwen、SiliconFlow、OpenRouter 等 OpenAI 兼容服务），填 Base URL、API Key、模型名，保存。
-2. 点右下角 **🎭 → ⚙ 设置 → 「分析用 API」** 下拉，选中刚建的配置（会显示“配置名 · 模型名”）。
-3. 之后点「生成选项」的请求就**只走这条便宜 API**，主对话用的贵模型完全不受影响。
-4. 选 **「跟随主 API（默认）」** 即可恢复。
+1. **跟随主 API（默认）**——用你酒馆当前连接的主模型。
+2. **自定义 API**——在扩展里**自己填**，只影响「总结/选项」，主对话的贵模型完全不动：
+   - **接口地址**：OpenAI 兼容地址，填到 `/v1` 即可，例如
+     - DeepSeek：`https://api.deepseek.com/v1`
+     - 通义 Qwen：`https://dashscope.aliyuncs.com/compatible-mode/v1`
+     - SiliconFlow：`https://api.siliconflow.cn/v1`
+     - OpenRouter：`https://openrouter.ai/api/v1`
+     - 其它兼容服务同理
+   - **API Key**：你在这个服务的 key（**只存在本机浏览器 localStorage，不上传别处**，只会作为请求头发给你填的这个地址）。
+   - **模型**：点 **「获取模型」** 会自动请求 `{接口地址}/models` 拉出模型下拉，选一个；也可手动输入模型名。
 
-> 前提：酒馆需启用 **Connection Manager** 扩展（多数版本内置）。下拉为空就说明没启用或还没建配置，点设置里的「刷新」重读。
+> 走的是真正的 `POST {接口地址}/chat/completions`（OpenAI 兼容）。DeepSeek、OpenAI、OpenRouter、SiliconFlow、通义等主流服务都允许浏览器跨域，已实测可用。若某个自建/小众接口不允许跨域（CORS），会报网络错误，那种情况改用酒馆的「连接配置」或主 API。
+> 设置里选回 **「跟随主 API」** 即恢复。
 
 ---
 

@@ -29,7 +29,10 @@
         autoMode: false,       // AI 回复后是否自动生成选项
         showSummary: true,     // 是否显示总结
         extraStyle: '',        // 额外风格要求（自由填写）
-        profileId: '',         // 分析用「连接配置(Connection Profile)」ID；空 = 跟随主 API
+        apiMode: 'main',       // 'main'=跟随主 API；'custom'=自定义 API
+        customBaseUrl: '',     // 自定义接口地址（OpenAI 兼容，填到 /v1）
+        customApiKey: '',      // 自定义 API Key（仅存本机浏览器）
+        customModel: '',       // 自定义模型名
     };
 
     let settings = loadSettings();
@@ -146,49 +149,74 @@
         '总结局势、给出可执行的行动建议。你不扮演任何角色、不续写正文、不做心理描写堆砌、' +
         '不输出任何标签或代码块。你的输出必须是一个严格合法的 JSON 对象。';
 
-    // 读取酒馆里可用的「连接配置(Connection Profile)」，返回 {id,name,model} 列表
-    function listProfiles() {
-        const c = getCtx();
-        const svc = c.ConnectionManagerRequestService;
-        if (!svc || typeof svc.getSupportedProfiles !== 'function') return [];
-        try {
-            return (svc.getSupportedProfiles() || []).map((p) => ({
-                id: p.id,
-                name: p.name || p.id,
-                model: p.model || '',
-                api: p.api,
-            }));
-        } catch (_) { return []; }
+    // ---- 自定义 API 工具（OpenAI 兼容：/models、/chat/completions）----
+    function normBase(url) {
+        let b = String(url || '').trim();
+        if (!b) throw new Error('请先在设置里填写「接口地址」');
+        b = b.replace(/\/+$/, '');
+        b = b.replace(/\/chat\/completions$/i, '');
+        b = b.replace(/\/models$/i, '');
+        return b;
+    }
+    function apiUrl(path) { return normBase(settings.customBaseUrl) + path; }
+
+    // 自动获取模型列表：GET {base}/models
+    async function fetchModels() {
+        const key = String(settings.customApiKey || '').trim();
+        const res = await fetch(apiUrl('/models'), {
+            method: 'GET',
+            headers: key ? { 'Authorization': 'Bearer ' + key } : {},
+        });
+        if (!res.ok) {
+            let t = ''; try { t = await res.text(); } catch (_) {}
+            throw new Error('获取模型失败：HTTP ' + res.status + (t ? ' · ' + t.slice(0, 200) : ''));
+        }
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : (data.data || data.models || []);
+        return (arr || [])
+            .map((m) => (typeof m === 'string' ? m : (m.id || m.name || m.model)))
+            .filter(Boolean);
+    }
+
+    // 自定义 API 对话补全：POST {base}/chat/completions
+    async function customChat(prompt) {
+        const key = String(settings.customApiKey || '').trim();
+        const model = String(settings.customModel || '').trim();
+        if (!model) throw new Error('请先选择或填写模型（可点「获取模型」）');
+        const res = await fetch(apiUrl('/chat/completions'), {
+            method: 'POST',
+            headers: Object.assign(
+                { 'Content-Type': 'application/json' },
+                key ? { 'Authorization': 'Bearer ' + key } : {}
+            ),
+            body: JSON.stringify({
+                model,
+                messages: [
+                    { role: 'system', content: SYSTEM_PROMPT },
+                    { role: 'user', content: prompt },
+                ],
+                max_tokens: 700,
+                temperature: 0.7,
+                stream: false,
+            }),
+        });
+        if (!res.ok) {
+            let t = ''; try { t = await res.text(); } catch (_) {}
+            throw new Error('接口返回 HTTP ' + res.status + (t ? ' · ' + t.slice(0, 300) : ''));
+        }
+        const data = await res.json();
+        const ch = data && data.choices && data.choices[0];
+        const content = ch && (ch.message ? ch.message.content : ch.text);
+        return String(content || '');
     }
 
     async function runRaw(prompt) {
         const c = getCtx();
         const responseLength = 700;
 
-        // 0) 独立「连接配置」优先：用你另建的便宜 API 发请求，完全不碰主 API
-        if (settings.profileId) {
-            const svc = c.ConnectionManagerRequestService;
-            if (!svc || typeof svc.sendRequest !== 'function') {
-                throw new Error('连接配置服务不可用：请在酒馆扩展里启用「连接管理/Connection Manager」，并新建一个 API 配置');
-            }
-            // 判断该配置是 Chat Completion 还是 Text Completion
-            let chatStyle = true;
-            try {
-                const prof = listProfiles().find((p) => p.id === settings.profileId);
-                const map = c.CONNECT_API_MAP && prof ? c.CONNECT_API_MAP[prof.api] : null;
-                chatStyle = !map || map.selected === 'openai';
-            } catch (_) { chatStyle = true; }
-            const messagePayload = chatStyle
-                ? [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }]
-                : (SYSTEM_PROMPT + '\n\n' + prompt);
-            const res = await svc.sendRequest(settings.profileId, messagePayload, responseLength, {
-                stream: false,
-                extractData: true,
-                includePreset: false,
-                includeInstruct: false,
-            });
-            if (typeof res === 'string') return res;
-            return String((res && (res.content != null ? res.content : res.text)) || '');
+        // 0) 自定义 API（自填 URL / Key / 模型）
+        if (settings.apiMode === 'custom') {
+            return await customChat(prompt);
         }
 
         // 首选：generateRaw —— 纯净补全，不带角色卡/世界书/聊天历史
@@ -440,28 +468,69 @@
         style.value = settings.extraStyle || '';
         style.addEventListener('change', () => { settings.extraStyle = style.value; saveSettings(); });
 
-        // 分析用 API（酒馆「连接配置 / Connection Profile」）
-        const profileSelect = el('select', { class: 'ch-input' });
-        const refreshBtn = el('button', { class: 'ch-mini', text: '刷新', title: '重新读取连接配置' });
-        const populateProfiles = () => {
-            profileSelect.innerHTML = '';
-            const opt = (val, text) => { const o = el('option', { value: val }); o.textContent = text; return o; };
-            profileSelect.appendChild(opt('', '跟随主 API（默认）'));
-            const list = listProfiles();
-            list.forEach((p) => profileSelect.appendChild(opt(p.id, p.name + (p.model ? ' · ' + p.model : ''))));
-            if (settings.profileId && !list.some((p) => p.id === settings.profileId)) {
-                settings.profileId = ''; saveSettings();
-            }
-            profileSelect.value = settings.profileId || '';
-        };
-        profileSelect.addEventListener('change', () => { settings.profileId = profileSelect.value || ''; saveSettings(); });
-        refreshBtn.addEventListener('click', () => { populateProfiles(); });
-        populateProfiles();
-        const apiWrap = el('div', { class: 'ch-apirow' }, [profileSelect, refreshBtn]);
+        // 分析用 API：两项 —— ① 跟随主 API  ② 自定义 API（自填 URL / Key / 模型，可自动拉模型）
+        const modeSelect = el('select', { class: 'ch-input' });
+        const optMain = el('option', { value: 'main' }); optMain.textContent = '跟随主 API（默认）';
+        const optCustom = el('option', { value: 'custom' }); optCustom.textContent = '自定义 API（自填 URL / Key）';
+        modeSelect.appendChild(optMain); modeSelect.appendChild(optCustom);
+        modeSelect.value = settings.apiMode === 'custom' ? 'custom' : 'main';
+
+        const urlInput = el('input', { type: 'text', class: 'ch-input', placeholder: 'https://api.deepseek.com/v1' });
+        urlInput.value = settings.customBaseUrl || '';
+        urlInput.addEventListener('change', () => { settings.customBaseUrl = urlInput.value.trim(); saveSettings(); });
+
+        const keyInput = el('input', { type: 'password', class: 'ch-input', placeholder: 'sk-...（只存本机浏览器）' });
+        keyInput.value = settings.customApiKey || '';
+        keyInput.addEventListener('change', () => { settings.customApiKey = keyInput.value.trim(); saveSettings(); });
+
+        const modelInput = el('input', { type: 'text', class: 'ch-input', placeholder: '模型名，如 deepseek-chat' });
+        modelInput.value = settings.customModel || '';
+        modelInput.addEventListener('change', () => { settings.customModel = modelInput.value.trim(); saveSettings(); });
+
+        const modelSelect = el('select', { class: 'ch-input ch-hidden' });
+        modelSelect.addEventListener('change', () => { if (modelSelect.value) { settings.customModel = modelSelect.value; modelInput.value = modelSelect.value; saveSettings(); } });
+
+        const fetchBtn = el('button', { class: 'ch-mini', text: '获取模型' });
+        fetchBtn.addEventListener('click', async () => {
+            fetchBtn.disabled = true; const old = fetchBtn.textContent; fetchBtn.textContent = '获取中…';
+            try {
+                settings.customBaseUrl = urlInput.value.trim();
+                settings.customApiKey = keyInput.value.trim();
+                saveSettings();
+                const list = await fetchModels();
+                if (!list.length) { toast('接口没有返回模型列表'); }
+                else {
+                    modelSelect.innerHTML = '';
+                    const o0 = el('option', { value: '' }); o0.textContent = '— 选择模型（共 ' + list.length + '）—'; modelSelect.appendChild(o0);
+                    list.forEach((m) => { const o = el('option', { value: m }); o.textContent = m; modelSelect.appendChild(o); });
+                    modelSelect.classList.remove('ch-hidden');
+                    if (settings.customModel && list.includes(settings.customModel)) modelSelect.value = settings.customModel;
+                    toast('已获取 ' + list.length + ' 个模型');
+                }
+            } catch (e) { toast((e && e.message) ? e.message : String(e)); }
+            finally { fetchBtn.disabled = false; fetchBtn.textContent = old; }
+        });
+
+        const modelWrap = el('div', { class: 'ch-apirow' }, [modelInput, fetchBtn]);
+        const customFields = el('div', { id: 'ch_custom_fields', class: 'ch-custom-fields' + (settings.apiMode === 'custom' ? '' : ' ch-hidden') }, [
+            el('div', { class: 'ch-hint', text: 'OpenAI 兼容接口。接口地址填到 /v1 即可（如 https://api.deepseek.com/v1）。Key 只存本机浏览器，不上传别处（只发给你填的这个接口）。' }),
+            mkRow('接口地址', urlInput),
+            mkRow('API Key', keyInput),
+            mkRow('模型', modelWrap),
+            modelSelect,
+        ]);
+
+        modeSelect.addEventListener('change', () => {
+            settings.apiMode = modeSelect.value === 'custom' ? 'custom' : 'main';
+            saveSettings();
+            customFields.classList.toggle('ch-hidden', settings.apiMode !== 'custom');
+        });
+
+        const apiBlock = el('div', { class: 'ch-api-block' }, [modeSelect, customFields]);
 
         return el('div', { id: 'ch_settings', class: 'ch-settings ch-hidden' }, [
             el('div', { class: 'ch-settings-title', text: '设置' }),
-            mkRow('分析用 API', apiWrap, '空=跟随主 API。选一个便宜配置，总结/选项只走它，不花主力模型的 token。需先在酒馆「扩展 → 连接管理(Connection Manager)」里建好该配置。'),
+            mkRow('分析用 API', apiBlock, '两项：① 跟随主 API（默认）② 自定义 API（自填 URL/Key，可自动获取模型）。自定义只影响"总结/选项"，不动主对话。'),
             mkRow('选项数量', num, '2–6 个'),
             mkRow('上下文消息数', ctxNum, '读取最近几条消息用于总结'),
             mkRow('点击后自动发送', autoSend, '关闭时只填入输入框，你自己确认再发'),

@@ -6,7 +6,7 @@
   "js": "index.js",
   "css": "style.css",
   "author": "LittleCodeSauce",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "homePage": "https://github.com/u1ra/ST-ChoiceHelper",
   "auto_update": false,
   "minimum_client_version": "1.12.0"

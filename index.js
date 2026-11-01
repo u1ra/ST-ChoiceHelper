@@ -29,6 +29,7 @@
         autoMode: false,       // AI 回复后是否自动生成选项
         showSummary: true,     // 是否显示总结
         extraStyle: '',        // 额外风格要求（自由填写）
+        profileId: '',         // 分析用「连接配置(Connection Profile)」ID；空 = 跟随主 API
     };
 
     let settings = loadSettings();
@@ -145,9 +146,50 @@
         '总结局势、给出可执行的行动建议。你不扮演任何角色、不续写正文、不做心理描写堆砌、' +
         '不输出任何标签或代码块。你的输出必须是一个严格合法的 JSON 对象。';
 
+    // 读取酒馆里可用的「连接配置(Connection Profile)」，返回 {id,name,model} 列表
+    function listProfiles() {
+        const c = getCtx();
+        const svc = c.ConnectionManagerRequestService;
+        if (!svc || typeof svc.getSupportedProfiles !== 'function') return [];
+        try {
+            return (svc.getSupportedProfiles() || []).map((p) => ({
+                id: p.id,
+                name: p.name || p.id,
+                model: p.model || '',
+                api: p.api,
+            }));
+        } catch (_) { return []; }
+    }
+
     async function runRaw(prompt) {
         const c = getCtx();
         const responseLength = 700;
+
+        // 0) 独立「连接配置」优先：用你另建的便宜 API 发请求，完全不碰主 API
+        if (settings.profileId) {
+            const svc = c.ConnectionManagerRequestService;
+            if (!svc || typeof svc.sendRequest !== 'function') {
+                throw new Error('连接配置服务不可用：请在酒馆扩展里启用「连接管理/Connection Manager」，并新建一个 API 配置');
+            }
+            // 判断该配置是 Chat Completion 还是 Text Completion
+            let chatStyle = true;
+            try {
+                const prof = listProfiles().find((p) => p.id === settings.profileId);
+                const map = c.CONNECT_API_MAP && prof ? c.CONNECT_API_MAP[prof.api] : null;
+                chatStyle = !map || map.selected === 'openai';
+            } catch (_) { chatStyle = true; }
+            const messagePayload = chatStyle
+                ? [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }]
+                : (SYSTEM_PROMPT + '\n\n' + prompt);
+            const res = await svc.sendRequest(settings.profileId, messagePayload, responseLength, {
+                stream: false,
+                extractData: true,
+                includePreset: false,
+                includeInstruct: false,
+            });
+            if (typeof res === 'string') return res;
+            return String((res && (res.content != null ? res.content : res.text)) || '');
+        }
 
         // 首选：generateRaw —— 纯净补全，不带角色卡/世界书/聊天历史
         if (typeof c.generateRaw === 'function') {
@@ -254,7 +296,8 @@
             if (!lastResult.choices.length) toast('没解析出选项，可点“重新生成”再试一次。');
         } catch (e) {
             log('生成失败', e);
-            toast('生成失败：' + (e && e.message ? e.message : e));
+            const msg = (e && e.cause && e.cause.message) ? e.cause.message : (e && e.message ? e.message : e);
+            toast('生成失败：' + msg);
         } finally {
             showLoading(false);
             setBusy(false);
@@ -372,8 +415,28 @@
         style.value = settings.extraStyle || '';
         style.addEventListener('change', () => { settings.extraStyle = style.value; saveSettings(); });
 
+        // 分析用 API（酒馆「连接配置 / Connection Profile」）
+        const profileSelect = el('select', { class: 'ch-input' });
+        const refreshBtn = el('button', { class: 'ch-mini', text: '刷新', title: '重新读取连接配置' });
+        const populateProfiles = () => {
+            profileSelect.innerHTML = '';
+            const opt = (val, text) => { const o = el('option', { value: val }); o.textContent = text; return o; };
+            profileSelect.appendChild(opt('', '跟随主 API（默认）'));
+            const list = listProfiles();
+            list.forEach((p) => profileSelect.appendChild(opt(p.id, p.name + (p.model ? ' · ' + p.model : ''))));
+            if (settings.profileId && !list.some((p) => p.id === settings.profileId)) {
+                settings.profileId = ''; saveSettings();
+            }
+            profileSelect.value = settings.profileId || '';
+        };
+        profileSelect.addEventListener('change', () => { settings.profileId = profileSelect.value || ''; saveSettings(); });
+        refreshBtn.addEventListener('click', () => { populateProfiles(); });
+        populateProfiles();
+        const apiWrap = el('div', { class: 'ch-apirow' }, [profileSelect, refreshBtn]);
+
         return el('div', { id: 'ch_settings', class: 'ch-settings ch-hidden' }, [
             el('div', { class: 'ch-settings-title', text: '设置' }),
+            mkRow('分析用 API', apiWrap, '空=跟随主 API。选一个便宜配置，总结/选项只走它，不花主力模型的 token。需先在酒馆「扩展 → 连接管理(Connection Manager)」里建好该配置。'),
             mkRow('选项数量', num, '2–6 个'),
             mkRow('上下文消息数', ctxNum, '读取最近几条消息用于总结'),
             mkRow('点击后自动发送', autoSend, '关闭时只填入输入框，你自己确认再发'),

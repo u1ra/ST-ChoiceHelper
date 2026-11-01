@@ -195,6 +195,24 @@
 .ch-textarea { resize: vertical; min-height: 56px; }
 .ch-check { width: 16px; height: 16px; }
 
+/* 分析用 API 行 */
+.ch-apirow { display: flex; gap: 6px; align-items: center; }
+.ch-apirow .ch-input { flex: 1; min-width: 0; }
+.ch-mini {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--ch-border);
+    background: var(--ch-btn);
+    color: var(--ch-fg);
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.ch-mini:hover { background: var(--ch-btn-hover); border-color: var(--ch-accent); }
+select.ch-input { cursor: pointer; }
+select.ch-input option { color: #111; }
+
 .ch-hidden { display: none !important; }
 
 /* toast */

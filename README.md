@@ -98,6 +98,19 @@ docker cp "E:\DeepSeekProject\MDZS\ST-ChoiceHelper" <容器名>:/home/node/app/p
 
 ---
 
+## 用便宜的独立 API（省主力模型 token）
+
+不想让"总结/选项"花你昂贵主力模型的钱？用酒馆自带的**连接配置(Connection Manager)**，给这个助手单独指一个便宜 API：
+
+1. 酒馆顶部/扩展里打开 **连接管理（Connection Manager / Connection Profiles）**，**新建一个配置**：选你的便宜 API（如 DeepSeek、智谱 GLM、通义 Qwen、SiliconFlow、OpenRouter 等 OpenAI 兼容服务），填 Base URL、API Key、模型名，保存。
+2. 点右下角 **🎭 → ⚙ 设置 → 「分析用 API」** 下拉，选中刚建的配置（会显示“配置名 · 模型名”）。
+3. 之后点「生成选项」的请求就**只走这条便宜 API**，主对话用的贵模型完全不受影响。
+4. 选 **「跟随主 API（默认）」** 即可恢复。
+
+> 前提：酒馆需启用 **Connection Manager** 扩展（多数版本内置）。下拉为空就说明没启用或还没建配置，点设置里的「刷新」重读。
+
+---
+
 ## 三、原理 / 说明
 
 - **总结 + 选项** 走 `generateRaw`：一次独立的小补全，只把你最近几条消息 + 指令发给**你当前配置的 API/模型**，返回严格 JSON。**不写入聊天记录、不动世界书、不进主上下文**。

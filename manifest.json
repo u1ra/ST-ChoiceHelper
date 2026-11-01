@@ -1,0 +1,13 @@
+{
+  "display_name": "剧情推进助手 (Choice Helper)",
+  "loading_order": 50,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "LittleCodeSauce",
+  "version": "1.0.0",
+  "homePage": "",
+  "auto_update": false,
+  "minimum_client_version": "1.12.0"
+}

@@ -1,0 +1,223 @@
+/* 剧情推进助手 (Choice Helper) — 样式
+ * 尽量使用酒馆主题变量，自动适配明/暗主题。 */
+
+#ch_root {
+    --ch-bg: var(--SmartThemeBlurTintColor, rgba(28, 28, 34, 0.92));
+    --ch-fg: var(--SmartThemeBodyColor, #e8e8ea);
+    --ch-muted: var(--SmartThemeEmColor, #9a9aa2);
+    --ch-border: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+    --ch-accent: var(--SmartThemeQuoteColor, #8ab4ff);
+    --ch-btn: var(--SmartThemeUserMesBlurTintColor, rgba(255, 255, 255, 0.06));
+    --ch-btn-hover: var(--SmartThemeBotMesBlurTintColor, rgba(255, 255, 255, 0.12));
+}
+
+/* 悬浮按钮 */
+#ch_fab {
+    position: fixed;
+    right: 18px;
+    bottom: 120px;
+    z-index: 9998;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid var(--ch-border);
+    background: var(--ch-bg);
+    color: var(--ch-fg);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+#ch_fab:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+#ch_fab.ch-fab-active { border-color: var(--ch-accent); box-shadow: 0 0 0 2px var(--ch-accent) inset; }
+
+/* 面板 */
+.ch-panel {
+    position: fixed;
+    right: 18px;
+    bottom: 176px;
+    z-index: 9999;
+    width: min(420px, calc(100vw - 32px));
+    max-height: min(70vh, 720px);
+    display: flex;
+    flex-direction: column;
+    background: var(--ch-bg);
+    color: var(--ch-fg);
+    border: 1px solid var(--ch-border);
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.ch-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--ch-border);
+    font-weight: 600;
+}
+.ch-title { font-size: 14px; }
+.ch-spacer { flex: 1; }
+.ch-iconbtn {
+    background: transparent;
+    border: none;
+    color: var(--ch-muted);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    line-height: 1;
+}
+.ch-iconbtn:hover { color: var(--ch-fg); background: var(--ch-btn-hover); }
+
+.ch-body {
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ch-summary {
+    font-size: 13.5px;
+    line-height: 1.55;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--ch-btn);
+    border-left: 3px solid var(--ch-accent);
+    color: var(--ch-fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.ch-empty { color: var(--ch-muted); font-size: 13px; line-height: 1.6; }
+.ch-hint { color: var(--ch-muted); font-size: 12px; margin-top: 4px; }
+
+.ch-choices { display: flex; flex-direction: column; gap: 8px; }
+.ch-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    text-align: left;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--ch-border);
+    background: var(--ch-btn);
+    color: var(--ch-fg);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease, transform .06s ease;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.ch-choice:hover { background: var(--ch-btn-hover); border-color: var(--ch-accent); }
+.ch-choice:active { transform: scale(0.99); }
+.ch-choice-idx {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--ch-accent);
+    color: #0b0b10;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+.ch-choice-text { flex: 1; word-break: break-word; }
+
+.ch-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ch-muted);
+    font-size: 13px;
+    padding: 6px 2px;
+}
+.ch-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--ch-border);
+    border-top-color: var(--ch-accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: ch-spin .8s linear infinite;
+}
+@keyframes ch-spin { to { transform: rotate(360deg); } }
+
+.ch-foot {
+    padding: 10px 12px;
+    border-top: 1px solid var(--ch-border);
+    display: flex;
+    gap: 8px;
+}
+.ch-primary {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--ch-accent);
+    background: var(--ch-accent);
+    color: #0b0b10;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 14px;
+}
+.ch-primary:hover { filter: brightness(1.08); }
+.ch-primary:disabled { opacity: .6; cursor: default; filter: none; }
+
+/* 设置 */
+.ch-settings {
+    padding: 10px 12px 14px;
+    border-top: 1px solid var(--ch-border);
+    max-height: 46vh;
+    overflow-y: auto;
+}
+.ch-settings-title { font-weight: 700; margin-bottom: 8px; }
+.ch-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.ch-label { font-size: 13px; color: var(--ch-fg); }
+.ch-input {
+    background: var(--ch-btn);
+    border: 1px solid var(--ch-border);
+    color: var(--ch-fg);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.ch-num { width: 90px; }
+.ch-textarea { resize: vertical; min-height: 56px; }
+.ch-check { width: 16px; height: 16px; }
+
+.ch-hidden { display: none !important; }
+
+/* toast */
+#ch_toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%) translateY(20px);
+    z-index: 10000;
+    background: rgba(20, 20, 26, 0.95);
+    color: #fff;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    max-width: 80vw;
+}
+#ch_toast.ch-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 600px) {
+    .ch-panel { right: 8px; left: 8px; width: auto; bottom: 150px; }
+    #ch_fab { right: 12px; bottom: 100px; }
+}

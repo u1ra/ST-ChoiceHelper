@@ -18,7 +18,7 @@ https://github.com/u1ra/ST-ChoiceHelper
 ```
 
 酒馆内操作：**扩展（Extensions）→ 安装扩展程序（Install Extension）→ 粘贴上面的仓库地址 → 安装 → 刷新页面**。
-右下角出现 **🎭** 即成功。
+右下角出现 **🎭** 即成功；同时「扩展程序」列表里会出现 **剧情推进助手 (Choice Helper)**（可展开），点里面的按钮也能打开面板。
 
 > 说明：`安装扩展程序` 是由酒馆后端执行 `git clone`，装到 `public/scripts/extensions/third-party/ST-ChoiceHelper`。
 > Docker 部署下该目录默认不持久化，容器重建会丢；想长期保留请参考下面「方式 B」做 bind mount。

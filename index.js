@@ -384,6 +384,31 @@
 
         ui = { fab, panel, summaryEl, choicesEl, loadingEl, emptyEl, genBtn, settingsPanel };
         renderResult(lastResult);
+        mountExtensionSettingsBlock();
+    }
+
+    // 在「扩展程序」抽屉里挂一个设置面板，让它出现在扩展列表里、可展开
+    function mountExtensionSettingsBlock() {
+        if (document.getElementById('ch_ext_block')) return;
+        const host = document.getElementById('extensions_settings') || document.getElementById('extensions_settings2');
+        if (!host) return;
+        const openBtn = el('div', { class: 'menu_button menu_button_icon ch-open-btn', title: '打开剧情推进助手面板' }, [
+            el('i', { class: 'fa-solid fa-face-smile' }),
+            el('span', { text: ' 打开剧情推进助手面板' }),
+        ]);
+        openBtn.addEventListener('click', () => { openPanel(); });
+        const block = el('div', { class: 'inline-drawer', id: 'ch_ext_block' }, [
+            el('div', { class: 'inline-drawer-toggle inline-drawer-header' }, [
+                el('b', { text: '剧情推进助手 (Choice Helper)' }),
+                el('div', { class: 'inline-drawer-icon fa-solid fa-circle-chevron-down down' }),
+            ]),
+            el('div', { class: 'inline-drawer-content', style: 'display:none;' }, [
+                el('div', { class: 'ch-hint', text: '总结 AI 最新发言并给出可点击的行动选项。也可点聊天界面右下角的 🎭 打开。' }),
+                openBtn,
+                el('div', { class: 'ch-hint', text: '详细设置（分析用 API、选项数量等）在浮动面板里点 ⚙。' }),
+            ]),
+        ]);
+        host.appendChild(block);
     }
 
     function buildSettingsPanel() {

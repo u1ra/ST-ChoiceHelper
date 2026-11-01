@@ -1,151 +1,160 @@
-# 剧情推进助手 (Choice Helper) — 酒馆第三方扩展
+# 剧情推进助手 (Choice Helper) — SillyTavern 扩展 · v2.0.0
 
-一个给 **SillyTavern（酒馆）** 用的小扩展：点一下，自动**总结 AI 最新一轮发言**，并生成几个**可直接点击的行动选项**，点击即填入输入框（可选自动发送），帮你把剧情往前推。
+仓库：`https://github.com/u1ra/ST-ChoiceHelper`
 
-- 纯前端、无构建、无第三方依赖，一个文件夹丢进去就能用。
-- 走 `generateRaw` **纯净补全**：只读最近几条消息，**不注入角色卡/世界书**，不污染主上下文、不干扰存档。
-- 兼容 SillyTavern **1.12+**（Docker 部署同款前端即可）。
-- 自动适配酒馆明/暗主题。
+## 1. 项目简介
 
----
+一个给 **SillyTavern（酒馆）** 用的轻量前端扩展：AI 每回复完，你可以**手动或自动**让它分析最新剧情、总结当前局势，并生成几条**带风格标签、可直接点击**的行动选项，点击后填入酒馆输入框或直接发送，帮你推进剧情。
 
-## 一键安装（Git 仓库，推荐）
+- 零构建、零外部依赖、纯原生 JavaScript + 原生 CSS。
+- 默认“纯净上下文”：只发送最近几条清洗后的聊天，不注入整张角色卡/世界书，不改主剧情 Prompt、不改主模型配置、不往聊天里插入助手内容。
+- 兼容 SillyTavern **1.12+**（含内部 API 兼容适配层）。
 
-仓库地址：
+## 2. 核心功能
 
-```
-https://github.com/u1ra/ST-ChoiceHelper
-```
+- **总结 + 选项**：总结最新 AI 回复，生成 2–6 个带风格标签的行动选项（默认 4）。
+- **双 API 模式**：① 跟随酒馆主 API；② 自定义 OpenAI 兼容 API（自填 URL/Key/模型，可自动拉模型列表）。
+- **Quick Hint（本轮走向微调）**：临时输入“这轮想怎么走”，只影响本轮，不写配置、不动角色卡。
+- **深度文本清洗**：移除 `<think>/<thinking>/<thought>`（含未闭合）、`<details>/<status>`、`<script>/<style>`、Markdown 代码块、宏、HTML、控制字符；避免思维链污染。
+- **首尾智能截断**：超长 AI 回复优先保留**结尾**剧情（不再像旧版只留开头）。
+- **主角身份对齐**：用 `name1` 作为玩家主角、`name2` 作为 AI 角色，选项统一第一人称、不替 NPC 决定、不预设成功。
+- **强鲁棒解析**：多级 JSON 解析、平衡括号提取、旧格式兼容、去重、编号 bug 修复、非法输出明确报错。
+- **请求可取消**：自定义 API 真中断（AbortController）；主 API 逻辑取消（不停止主剧情、不无限并发）。
+- **状态隔离**：绑定 message + swipe 的缓存，切聊天 / 切 Swipe / 编辑消息 / 并发请求都不会串台。
+- **可拖拽悬浮球 / Quick Hint / 取消按钮 / 草稿保护 / 明暗主题 / 移动端**。
 
-酒馆内操作：**扩展（Extensions）→ 安装扩展程序（Install Extension）→ 粘贴上面的仓库地址 → 安装 → 刷新页面**。
-右下角出现 **🎭** 即成功；同时「扩展程序」列表里会出现 **剧情推进助手 (Choice Helper)**（可展开），点里面的按钮也能打开面板。
+## 3. 安装方法
 
-> 说明：`安装扩展程序` 是由酒馆后端执行 `git clone`，装到 `public/scripts/extensions/third-party/ST-ChoiceHelper`。
-> Docker 部署下该目录默认不持久化，容器重建会丢；想长期保留请参考下面「方式 B」做 bind mount。
+**方式 A：Git 一键安装（推荐）**
+酒馆 **扩展（Extensions）→ 安装扩展程序（Install Extension）→ 填 `https://github.com/u1ra/ST-ChoiceHelper` → 安装 → 刷新页面**。
+装好后：聊天界面右下角出现 **🎭**；「扩展程序」列表里出现 **剧情推进助手 (Choice Helper) v2**（可展开、内含“打开面板”按钮）。
 
----
+**方式 B：本地放入**
+把整个文件夹放到 `public/scripts/extensions/third-party/ST-ChoiceHelper`，刷新页面。
 
-## 一、安装（Docker 版酒馆）
+> 安装后**刷新**即可加载，无需重启服务。若看不到 🎭，`Ctrl+F5` 硬刷新并看控制台是否出现 `[剧情助手] 已加载 v2.0.0`。
 
-> 扩展是"静态前端文件"，放进去后**浏览器刷新**即可，不用重启容器/服务。
-> 先记住容器名：`docker ps` 里那一列 `NAMES`。
+## 4. Docker 安装与持久化
 
-### 方式 A：最快（docker cp，立即生效，容器重建后会丢）
+Docker 里「安装扩展程序」是由容器内后端 `git clone` 到 `public/scripts/extensions/third-party/ST-ChoiceHelper`。
 
 ```powershell
-# 把整个文件夹复制进容器的第三方扩展目录
-docker cp "E:\DeepSeekProject\MDZS\ST-ChoiceHelper" <容器名>:/home/node/app/public/scripts/extensions/third-party/ST-ChoiceHelper
+# 手动放入（docker cp 方式）
+docker cp "路径\ST-ChoiceHelper" <容器名>:/home/node/app/public/scripts/extensions/third-party/ST-ChoiceHelper
 ```
 
-- 官方镜像一般工作目录是 `/home/node/app`；若报路径不存在，用下面命令确认正确路径：
-  ```powershell
-  docker exec -it <容器名> sh -c "pwd; ls public/scripts/extensions/third-party"
-  ```
-  老一些的镜像可能是 `/usr/src/app/...`，把上面命令里的 `/home/node/app` 换成对应前缀即可。
-- 复制完 → 浏览器 `Ctrl+F5` 硬刷新 → 右下角出现 **🎭** 悬浮按钮即成功。
+**持久化（容器重建不丢）**：给第三方扩展目录加 bind mount（先把镜像里已有扩展导出，避免顶掉酒馆助手/提示词模板）：
 
-### 方式 B：持久化（推荐，容器重建不丢）
+```yaml
+volumes:
+  - ./extensions:/home/node/app/public/scripts/extensions/third-party
+```
 
-用 bind mount 把「第三方扩展目录」映射到宿主机。**注意：直接挂空目录会把镜像里已有的扩展（酒馆助手、提示词模板等）挡掉，务必先把现有目录导出。**
+更新已装版本：
+```powershell
+docker exec -it <容器名> sh -c "cd /home/node/app/public/scripts/extensions/third-party/ST-ChoiceHelper && git pull"
+```
 
-1. 在 `docker-compose.yml` 同目录建 `extensions` 文件夹。
-2. 先把容器里现有的第三方扩展导出到宿主机（防止被覆盖）：
-   ```powershell
-   docker cp <容器名>:/home/node/app/public/scripts/extensions/third-party/. ./extensions/
-   ```
-3. 把本扩展复制进去：
-   ```powershell
-   Copy-Item -Recurse "E:\DeepSeekProject\MDZS\ST-ChoiceHelper" ".\extensions\ST-ChoiceHelper"
-   ```
-4. 在 `docker-compose.yml` 对应 service 的 `volumes:` 下加一行（注意缩进）：
-   ```yaml
-   volumes:
-     - ./extensions:/home/node/app/public/scripts/extensions/third-party
-   ```
-5. 重建：
-   ```powershell
-   docker compose up -d
-   ```
-6. 浏览器 `Ctrl+F5` 刷新。
+## 5. 主 API 与自定义 API 配置
 
-### 方式 C：走 Git（以后想一键更新时用）
+🎭 → **⚙ 设置 → 分析用 API**：
 
-把本文件夹推到一个 Git 仓库，然后在酒馆：**扩展（Extensions）→ Install Extension From Git Repo** 填仓库地址即可。
+- **跟随主 API（默认）**：走你酒馆当前连接的主模型（优先 `generateRaw` 纯净补全，失败降级 `generateQuietPrompt`）。
+- **自定义 API**：自填
+  - **接口地址**（OpenAI 兼容，填到 `/v1`）：如 `https://api.deepseek.com/v1`、`https://dashscope.aliyuncs.com/compatible-mode/v1`、`https://api.siliconflow.cn/v1`、`https://openrouter.ai/api/v1`、`https://api.openai.com/v1`。
+  - **API Key**（只存本机浏览器）。
+  - **模型**：点 **「获取模型」** 自动请求 `{地址}/models` 生成下拉；也可手动输入。
+  - 进阶：**最大输出 Tokens**（默认 2000）、**温度**（留空=不发送）、**请求超时**（默认 60s）。
 
----
+请求走 `POST {地址}/chat/completions`，**不改变酒馆主剧情模型**。DeepSeek/OpenAI/OpenRouter/SiliconFlow/通义等主流服务允许浏览器跨域；不支持跨域(CORS)的自建接口会报网络错误。
 
-## 二、使用
+## 6. Quick Hint 使用说明
 
-1. 进入任意聊天，AI 回复后，点右下角 **🎭**。
-2. 面板里点 **生成选项**：
-   - 顶部出现 **📌 一句话总结**（AI 最新这轮发生了什么）。
-   - 下方出现 **若干行动选项**，每个都不同风格（谨慎/大胆/社交/探索/搞笑…）。
-3. **点选项** → 文本自动填入输入框（默认只填不发，你确认后回车；可在设置里开「自动发送」）。
-4. **↻ 重新生成**：不满意就再摇一批；**⚙ 设置**：调选项数量、上下文条数、自动模式等。
+主面板底部“💡 本轮走向提示”输入框（`#ch_quick_hint`），右侧 `✕` 清空，**Enter 直接生成**。
 
-### 设置项
+- 例：`委婉拒绝`、`主动发起战斗`、`优先调查线索`、`保持冷静不要暴露身份`。
+- 优先级高于默认风格分配，但**不覆盖已发生的剧情事实**；只对本轮生效，不写长期配置、不改角色卡。
+- 切换聊天自动清空；也可手动清空。
 
-| 设置 | 说明 | 默认 |
-|---|---|---|
-| 选项数量 | 每次生成几个选项（2–6） | 4 |
-| 上下文消息数 | 读取最近几条消息用于总结 | 4 |
-| 点击后自动发送 | 关：只填入输入框；开：填完直接发送 | 关 |
-| 自动模式 | AI 每次回复后自动弹出选项（会多耗 token） | 关 |
-| 显示总结 | 是否显示顶部总结 | 开 |
-| 额外风格要求 | 自定义口味，如「更腹黑 / 选项短一点」 | 空 |
+## 7. 风格标签说明
 
-> 设置保存在本浏览器的 `localStorage`，清缓存/换浏览器会重置。
+每个选项 = 序号 + **风格标签**（如 `[谨慎试探]`）+ 具体行动正文。标签是 2–6 字的“行动风格”，会根据剧情动态分配（谨慎试探 / 大胆破局 / 社交交涉 / 探索调查 / 迂回策略 / 幽默互动 …），不机械固定。整张卡片可点击。
 
----
+## 8. 自动生成说明
 
-## 用在便宜的自定义 API（省主力模型 token）
+设置里开启 **自动模式** 后：AI 回复结束（`GENERATION_ENDED` / `CHARACTER_MESSAGE_RENDERED`）会**防抖 + 去重**地自动生成选项。
 
-「分析用 API」有两项：
+触发条件：自动模式开、聊天有效、最新是 AI 消息且有正文、当前 Swipe 无有效缓存、无进行中/已失效请求。不会因为打开历史聊天就对全部旧消息重跑，也不会被扩展自身请求反复触发。
 
-1. **跟随主 API（默认）**——用你酒馆当前连接的主模型。
-2. **自定义 API**——在扩展里**自己填**，只影响「总结/选项」，主对话的贵模型完全不动：
-   - **接口地址**：OpenAI 兼容地址，填到 `/v1` 即可，例如
-     - DeepSeek：`https://api.deepseek.com/v1`
-     - 通义 Qwen：`https://dashscope.aliyuncs.com/compatible-mode/v1`
-     - SiliconFlow：`https://api.siliconflow.cn/v1`
-     - OpenRouter：`https://openrouter.ai/api/v1`
-     - 其它兼容服务同理
-   - **API Key**：你在这个服务的 key（**只存在本机浏览器 localStorage，不上传别处**，只会作为请求头发给你填的这个地址）。
-   - **模型**：点 **「获取模型」** 会自动请求 `{接口地址}/models` 拉出模型下拉，选一个；也可手动输入模型名。
+## 9. Swipe 缓存恢复说明
 
-> 走的是真正的 `POST {接口地址}/chat/completions`（OpenAI 兼容）。DeepSeek、OpenAI、OpenRouter、SiliconFlow、通义等主流服务都允许浏览器跨域，已实测可用。若某个自建/小众接口不允许跨域（CORS），会报网络错误，那种情况改用酒馆的「连接配置」或主 API。
-> 设置里选回 **「跟随主 API」** 即恢复。
+结果按 **消息 + Swipe** 绑定缓存：
 
----
+- 写入 `msg.swipe_info[swipeId].extra.choice_helper`（新版本），并同步 `msg.extra.choice_helper` 和聊天级 `chatMetadata` 兼容索引（旧版本兜底）。
+- 只写自己的命名空间 `choice_helper`，不覆盖其他扩展的 `extra`。
+- 打开面板 / 刷新 / 切聊天 / 切 Swipe 时，**仅按 swipeId + 消息内容指纹**校验并恢复缓存；消息被编辑则缓存自动失效。
+- 被动恢复**不校验 Quick Hint**，所以生成后清空 Hint 或重开面板不会误判失效；主动点“重新生成”才用最新上下文与 Hint 重新请求。
 
-## 三、原理 / 说明
+## 10. 悬浮球拖拽说明
 
-- **总结 + 选项** 走 `generateRaw`：一次独立的小补全，只把你最近几条消息 + 指令发给**你当前配置的 API/模型**，返回严格 JSON。**不写入聊天记录、不动世界书、不进主上下文**。
-- 若你的酒馆版本没有 `generateRaw`，会自动降级用 `generateQuietPrompt`。
-- 每次点击 ≈ 一次几百 token 的额外请求，几乎不影响主剧情上下文。
-- 隐私：发送内容 = 最近几条聊天消息，走的就是你自己配的 API，和正常聊天一致。
+右下角 🎭 支持鼠标与触摸拖拽（Pointer Events）：
 
----
+- 移动 < 5px 视为点击（开/关面板），≥ 5px 视为拖拽。
+- 实时跟手、不超出视口、窗口缩放/横竖屏自动收敛。
+- 位置保存到 `settings.fabPos = { right, bottom }`；面板会跟随悬浮球位置并避免超出屏幕。
 
-## 四、常见问题
+## 11. 请求取消与超时说明
 
-| 现象 | 处理 |
+- 生成中主按钮变 **⏹ 取消生成**（红色危险样式），点击立即恢复可操作状态。
+- **自定义 API**：用 `AbortController` 真正中断 Fetch；默认 60s 超时；超时/主动取消分别提示。
+- **主 API**：部分版本 `generateRaw/generateQuietPrompt` 不支持外部中断——采用**逻辑取消**：请求标记作废、立即恢复 UI、旧结果返回后静默丢弃；**不会调用酒馆全局停止生成**，不影响主剧情。为避免遗留请求无限并发，使用单飞锁 + 2 秒冷却 + 遗留上限保护。
+
+## 12. 设置项目说明
+
+| 设置 | 说明 |
 |---|---|
-| 右下角没有 🎭 | 没复制成功 / 路径不对 / 没硬刷新。检查 `docker exec <容器> ls public/scripts/extensions/third-party/ST-ChoiceHelper`，浏览器 `Ctrl+F5`，看控制台是否出现 `[剧情助手] 已加载` |
-| 点生成报「没有可用的生成接口」 | 酒馆太老或缺 API，确认已选好 API 且能正常聊天；建议 1.12+ |
-| 生成失败/超时 | 当前模型/线路不稳，换模型或稍后重试 |
-| 选项解析成一坨 / 不整齐 | 换 JSON 能力更强的模型；或把「选项数量」调小；本扩展已有兜底解析 |
-| 选项老是重复、没新意 | 调大「上下文消息数」到 6–8，或在「额外风格要求」里写清口味 |
-| 自动模式太吵/太费 | 关掉「自动模式」，改手动点 🎭 |
+| 分析用 API | 跟随主 API / 自定义 API（URL、Key、模型、最大 Tokens、温度、超时） |
+| 记住 Key（关=仅本会话） | 开=localStorage 持久；关=sessionStorage，关浏览器即清 |
+| 选项数量 | 2–6，默认 4 |
+| 上下文消息数 | 1–12，默认 4 |
+| 单条截断字符 | 默认 1600，超长保留首尾 |
+| 保留 details/status 正文 | 默认移除整块；勾选则只去标签保留正文 |
+| 点击后自动发送 | 输入框已有草稿时不自动发送 |
+| 追加模式 | 有草稿时追加而非覆盖 |
+| 自动模式 | AI 回复后自动生成（防抖去重） |
+| 显示总结 | 是否显示顶部 📌 总结 |
+| 额外风格要求 | 自由填写 |
 
----
+所有设置实时保存；数字项做了范围钳制。
 
-## 五、目录结构
+## 13. SillyTavern 版本兼容说明
 
-```
-ST-ChoiceHelper/
-├── manifest.json   扩展清单（酒馆据此加载）
-├── index.js        全部逻辑（UI + 生成 + 解析 + 插入）
-├── style.css       样式（跟随主题变量）
-└── README.md       本说明
-```
+- 目标 **1.12+**。通过 `globalThis.SillyTavern.getContext()` 获取上下文。
+- `generateRaw`：优先对象参数 `{prompt, systemPrompt, responseLength}`；捕获签名错误后回退位置参数（早期 1.12.0）。
+- `generateQuietPrompt`：优先对象参数，签名错误回退位置参数 `(prompt,false,true)`。
+- 保存：优先 `saveChatConditional()`，其次 `saveChat()`，均带异常处理。
+- 事件名从 `ctx.eventTypes || ctx.event_types` 读取并做存在性检查，缺失则跳过。
+- 若既无 `generateRaw` 也无 `generateQuietPrompt`，明确提示不可用，不静默当成功。
+
+## 14. 隐私与 API Key 安全说明
+
+- 自定义 Key 仅保存在**本机浏览器**（localStorage 或 sessionStorage），不上传到任何第三方服务器，只作为请求头发给你填写的那个 API 地址。
+- 不在控制台日志、错误提示、聊天缓存或生成 Prompt 中出现 Key。
+- **注意**：浏览器 `localStorage/sessionStorage` 不是加密凭据库，同源脚本可能读取。敏感场景建议用“仅本会话保存”，或改用“跟随主 API + 酒馆自带的连接配置”。
+
+## 15. 常见问题
+
+- **看不到 🎭**：没装成功/路径不对/未硬刷新。看 `docker exec <容器> ls public/scripts/extensions/third-party/ST-ChoiceHelper`，或控制台 `[剧情助手] 已加载 v2.0.0`。
+- **下拉/选项看不清**：已改用主题变量；若仍异常多为浏览器原生 `<select>` 渲染，硬刷新重试。
+- **获取模型失败**：接口可能不实现 `/models`，直接手动填模型名即可；或跨域被拦。
+- **生成失败/超时**：换模型/检查地址或 Key/调大超时；主 API 侧看酒馆连接是否正常。
+- **切 Swipe 后没选项**：该 Swipe 尚无缓存，点“生成选项”；旧 Swipe 的选项不会串过来。
+- **自动模式太吵/费 token**：关闭自动模式，改手动点 🎭。
+
+## 16. v2.0.0 更新日志
+
+- **重构**：单文件内按职责拆分为配置 / 兼容层 / 清洗 / Prompt / 客户端 / 请求管理 / 解析 / 缓存 / 事件 / UI 模块。
+- **新增**：Quick Hint；风格标签；取消生成（自定义真中断 + 主 API 逻辑取消）；消息+Swipe 级缓存与指纹校验；生命周期事件同步与自动模式去重；可拖拽悬浮球；草稿保护（追加/覆盖）；首尾智能截断；深度文本清洗（思维链/未闭合/敏感块）；主角姓名对齐；强鲁棒多级解析；请求并发/竞争控制。
+- **改进**：区分多种空/错误状态；设置实时保存与范围校验；明暗主题与移动端安全区；API Key 本地化且不入日志/缓存。
+- **兼容**：`generateRaw/generateQuietPrompt/saveChat` 多版本适配与事件名兜底。
+- **迁移**：自动读取 v1 旧配置（字段基本一致），保留 API 地址/模型/选项数量/自动模式/自动发送/自定义风格等。
